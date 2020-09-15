@@ -66,13 +66,14 @@ namespace FlyTheCopter
         private void MainCanvas_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (!_game.Running)
+            {
+                Scoreboard.Visibility = Visibility.Visible;
                 StartGame();
+            }
             else
                 _game.Copter.SteerUp = true;
             
         }
-
-        
 
         private void UpdateTerrain(long offset)
         {
@@ -84,9 +85,9 @@ namespace FlyTheCopter
             for (var i = 0; i <= _windowSize.Width; ++i)
             {
                 _upperPathBuilder.Append(
-                    $" L {i} {(100 + Terrain.GetUpperPathCoord(i + offset)).ToString(CultureInfo.InvariantCulture)}");
+                    $" L {i} {Terrain.GetUpperPathCoord(i + offset).ToString(CultureInfo.InvariantCulture)}");
                 _lowerPathBuilder.Append(
-                    $" L {_windowSize.Width - i} {(_windowSize.Height - 120 + Terrain.GetLowerPathCoord(_windowSize.Width - i + offset)).ToString(CultureInfo.InvariantCulture)}");
+                    $" L {_windowSize.Width - i} {(_windowSize.Height - Terrain.GetLowerPathCoord(_windowSize.Width - i + offset)).ToString(CultureInfo.InvariantCulture)}");
             }
             
             UpperPath.Data = Geometry.Parse(_upperPathBuilder.ToString());

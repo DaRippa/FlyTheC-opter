@@ -9,18 +9,32 @@ namespace FlyTheCopter.models
 {
     public class Game
     {
-        public Copter Copter { get; } = new Copter(30);
+        public Copter Copter { get; } = new Copter(30, 0);
+        public Size CollisionThreshold { get; set; } = new Size(8, 8);
 
         public bool Running { get; private set; }
+
+        public Size CanvasSize
+        {
+            get => _canvasSize;
+            set
+            {
+                _canvasSize = value;
+                if (!Running)
+                    Copter.Position.Y = value.Height / 2;
+            }
+        }
+
         public event Action<int> FpsChanged;
         public event Action<long> Step;
         public event Action<bool> GameEnded;
 
-        public Size CanvasSize;
+
         private double _lastFrameEnd;
         private long _frameCounter = 0L;
         private long _scrollOffset = 0L;
         private Random _rand = new Random(123456);
+        private Size _canvasSize;
 
         public Collection<Rect> Obstacles { get; } = new Collection<Rect>();
 
@@ -76,13 +90,19 @@ namespace FlyTheCopter.models
             }
         }
 
-        private double GetObstacleYPosition(double xOffset) => 180 + Math.Sin(xOffset / 79) * 40 + Math.Cos(xOffset / 43) * 52;
-
         private Rect GetRectangle(double xOffset)
         {
             xOffset += (_rand.NextDouble() + 0.75) * 200;
+            var f = _rand.NextDouble() / 2.0 + 0.25;
+            var space = CanvasSize.Height - Terrain.GetLowerPathCoord(xOffset) - Terrain.GetUpperPathCoord(xOffset);
 
-            return new Rect {Height = 60 + _rand.NextDouble() * 40, Width = 30, X = xOffset, Y = GetObstacleYPosition(xOffset)};
+            return new Rect
+            {
+                Height = Math.Min(60 + _rand.NextDouble() * 40, space * 0.3), 
+                Width = 20, 
+                X = xOffset,
+                Y = (1.0 - f) * Terrain.GetUpperPathCoord(xOffset) + f * (CanvasSize.Height - Terrain.GetLowerPathCoord(xOffset))
+            };
         }
 
         private void InitObstacles()
@@ -106,17 +126,35 @@ namespace FlyTheCopter.models
 
             for (var i = 0; i < 60 && !hitUpper && !hitLower; ++i)
             {
-                var point = new Point(i, 100 + Terrain.GetUpperPathCoord(offset + i));
+                var point = new Point(i, Terrain.GetUpperPathCoord(offset + i));
                 var dist = (Copter.Position - point).Length;
 
-                hitUpper |= dist < 10;
+                hitUpper |= dist < CollisionThreshold.Height;
 
-                point.Y = CanvasSize.Height - 120 + Terrain.GetLowerPathCoord(i + offset);
+                point.Y = CanvasSize.Height - Terrain.GetLowerPathCoord(i + offset);
                 dist = (Copter.Position - point).Length;
-                hitLower |= dist < 10;
+                hitLower |= dist < CollisionThreshold.Height;
             }
 
-            return hitUpper || hitLower;
+            return hitUpper || hitLower || HitObstacle(offset);
+        }
+
+        private bool HitObstacle(in long offset)
+        {
+            var hit = false;
+            
+            foreach (var obstacle in Obstacles.Take(2))
+            {
+                if (Copter.Position.X + CollisionThreshold.Width < obstacle.X - offset || Copter.Position.X - CollisionThreshold.Width > obstacle.X + obstacle.Width - offset) //is left or right of obstacle
+                    continue;
+
+                if (Copter.Position.Y - CollisionThreshold.Height > obstacle.Y + obstacle.Height || Copter.Position.Y + CollisionThreshold.Height < obstacle.Y) //is above or below obstacle
+                    continue;
+
+                hit = true;
+            }
+
+            return hit;
         }
     }
 }
